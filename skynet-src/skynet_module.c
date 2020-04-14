@@ -10,13 +10,17 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#define MAX_MODULE_TYPE 32
+// 动态链接库 .so 的加载 和管理模块
 
+#define MAX_MODULE_TYPE 32 //模块类型最大32
+
+
+//模块管理结构
 struct modules {
-	int count;
-	struct spinlock lock;
-	const char * path;
-	struct skynet_module m[MAX_MODULE_TYPE];
+	int count;            //已加载模块的数量
+	struct spinlock lock; //互斥锁
+	const char * path;    //模块路径
+	struct skynet_module m[MAX_MODULE_TYPE]; //模块数组
 };
 
 static struct modules * M = NULL;
@@ -37,7 +41,7 @@ _try_open(struct modules *m, const char * name) {
 		memset(tmp,0,sz);
 		while (*path == ';') path++;
 		if (*path == '\0') break;
-		l = strchr(path, ';');
+		l = strchr(path, ';'); //首次出现";"的指针位置
 		if (l == NULL) l = path + strlen(path);
 		int len = l - path;
 		int i;
@@ -50,8 +54,8 @@ _try_open(struct modules *m, const char * name) {
 		} else {
 			fprintf(stderr,"Invalid C service path\n");
 			exit(1);
-		}
-		dl = dlopen(tmp, RTLD_NOW | RTLD_GLOBAL);
+		}// dlopen() 打开一个动态链接库，并返回动态链接库的句柄
+		dl = dlopen(tmp, RTLD_NOW | RTLD_GLOBAL); //加载so 全局共享解析所有符号的方式加载so
 		path = l;
 	}while(dl == NULL);
 
@@ -62,6 +66,7 @@ _try_open(struct modules *m, const char * name) {
 	return dl;
 }
 
+//根据文件名查找动态库的句柄
 static struct skynet_module * 
 _query(const char * name) {
 	int i;
@@ -99,6 +104,7 @@ open_sym(struct skynet_module *mod) {
 	return mod->init == NULL;
 }
 
+//根据模块名找模块 skynet_module* 结构，如果不存在则加载so
 struct skynet_module * 
 skynet_module_query(const char * name) {
 	struct skynet_module * result = _query(name);

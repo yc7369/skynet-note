@@ -18,12 +18,13 @@
 #include <string.h>
 #include <signal.h>
 
-struct monitor {
-	int count;
-	struct skynet_monitor ** m;
-	pthread_cond_t cond;
-	pthread_mutex_t mutex;
-	int sleep;
+//监控结构
+struct monitor { 
+	int count; 					//工作线程数量
+	struct skynet_monitor ** m;	//monitor 工作线程监控列表
+	pthread_cond_t cond;        //条件变量
+	pthread_mutex_t mutex;      //互斥锁
+	int sleep;                  //睡眠中工作线程数量
 	int quit;
 };
 
@@ -52,6 +53,7 @@ create_thread(pthread_t *thread, void *(*start_routine) (void *), void *arg) {
 	}
 }
 
+//当睡眠线程的数量>一定数量才唤醒一个线程
 static void
 wakeup(struct monitor *m, int busy) {
 	if (m->sleep >= m->count - busy) {
@@ -60,36 +62,39 @@ wakeup(struct monitor *m, int busy) {
 	}
 }
 
+//socket线程
 static void *
 thread_socket(void *p) {
-	struct monitor * m = p;
-	skynet_initthread(THREAD_SOCKET);
+	struct monitor * m = p; //接入monitor结构
+	skynet_initthread(THREAD_SOCKET); //设置线程局部存储 G_NODE.handle_key 为 THREAD_SOCKET
 	for (;;) {
-		int r = skynet_socket_poll();
-		if (r==0)
+		int r = skynet_socket_poll(); //检测网络事件（epoll管理的网络事件）并且将事件放入消息队列 skynet_socket_poll--->skynet_context_push
+		if (r==0) //SOCKET_EXIT
 			break;
 		if (r<0) {
 			CHECK_ABORT
 			continue;
 		}
-		wakeup(m,0);
+		wakeup(m,0); //全部线程睡眠情况下才唤醒一个工作线程
 	}
 	return NULL;
 }
 
+//释放监视
 static void
 free_monitor(struct monitor *m) {
 	int i;
 	int n = m->count;
 	for (i=0;i<n;i++) {
-		skynet_monitor_delete(m->m[i]);
+		skynet_monitor_delete(m->m[i]); //删除skynet_monitor结构
 	}
-	pthread_mutex_destroy(&m->mutex);
-	pthread_cond_destroy(&m->cond);
-	skynet_free(m->m);
-	skynet_free(m);
+	pthread_mutex_destroy(&m->mutex); //删除互斥锁
+	pthread_cond_destroy(&m->cond); //删除条件变量
+	skynet_free(m->m);  //释放监视中的skynet_monitor数组指针
+	skynet_free(m); //释放监视结构
 }
 
+//监视线程 用于监控是否有消息没有即时处理
 static void *
 thread_monitor(void *p) {
 	struct monitor * m = p;
@@ -98,10 +103,10 @@ thread_monitor(void *p) {
 	skynet_initthread(THREAD_MONITOR);
 	for (;;) {
 		CHECK_ABORT
-		for (i=0;i<n;i++) {
+		for (i=0;i<n;i++) { //遍历监视列表
 			skynet_monitor_check(m->m[i]);
 		}
-		for (i=0;i<5;i++) {
+		for (i=0;i<5;i++) {//睡眠5秒
 			CHECK_ABORT
 			sleep(1);
 		}
@@ -125,6 +130,7 @@ signal_hup() {
 	}
 }
 
+//定时器线程
 static void *
 thread_timer(void *p) {
 	struct monitor * m = p;
@@ -144,12 +150,13 @@ thread_timer(void *p) {
 	skynet_socket_exit();
 	// wakeup all worker thread
 	pthread_mutex_lock(&m->mutex);
-	m->quit = 1;
-	pthread_cond_broadcast(&m->cond);
+	m->quit = 1; //设置退出标志
+	pthread_cond_broadcast(&m->cond); //唤醒所有等待条件变量的线程
 	pthread_mutex_unlock(&m->mutex);
 	return NULL;
 }
 
+//工作线程
 static void *
 thread_worker(void *p) {
 	struct worker_parm *wp = p;

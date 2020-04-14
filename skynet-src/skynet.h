@@ -6,13 +6,13 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define PTYPE_TEXT 0
-#define PTYPE_RESPONSE 1
-#define PTYPE_MULTICAST 2
-#define PTYPE_CLIENT 3
-#define PTYPE_SYSTEM 4
-#define PTYPE_HARBOR 5
-#define PTYPE_SOCKET 6
+#define PTYPE_TEXT 0         //文本协议
+#define PTYPE_RESPONSE 1     //response to client with session, session may be packed into package       
+#define PTYPE_MULTICAST 2    //组播消息
+#define PTYPE_CLIENT 3       //客户端消息
+#define PTYPE_SYSTEM 4       //协议控制命令
+#define PTYPE_HARBOR 5       //远程消息
+#define PTYPE_SOCKET 6       //socket消息
 // read lualib/skynet.lua examples/simplemonitor.lua
 #define PTYPE_ERROR 7	
 // read lualib/skynet.lua lualib/mqueue.lua lualib/snax.lua

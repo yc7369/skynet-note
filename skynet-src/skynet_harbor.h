@@ -7,11 +7,13 @@
 #define GLOBALNAME_LENGTH 16
 #define REMOTE_MAX 256
 
+// 远程服务名和对应的handle
 struct remote_name {
 	char name[GLOBALNAME_LENGTH];
 	uint32_t handle;
 };
 
+//远程消息
 struct remote_message {
 	struct remote_name destination;
 	const void * message;
@@ -19,6 +21,7 @@ struct remote_message {
 	int type;
 };
 
+// 向远程服务发送消息
 void skynet_harbor_send(struct remote_message *rmsg, uint32_t source, int session);
 int skynet_harbor_message_isremote(uint32_t handle);
 void skynet_harbor_init(int harbor);

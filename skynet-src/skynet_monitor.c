@@ -8,11 +8,12 @@
 #include <stdlib.h>
 #include <string.h>
 
+/// 监视的结构
 struct skynet_monitor {
-	int version;
-	int check_version;
-	uint32_t source;
-	uint32_t destination;
+	int version; ///< 版本
+	int check_version;///< 检查版本
+	uint32_t source;///< 来源
+	uint32_t destination; ///< 目的
 };
 
 struct skynet_monitor * 
@@ -36,8 +37,8 @@ skynet_monitor_trigger(struct skynet_monitor *sm, uint32_t source, uint32_t dest
 
 void 
 skynet_monitor_check(struct skynet_monitor *sm) {
-	if (sm->version == sm->check_version) {
-		if (sm->destination) {
+	if (sm->version == sm->check_version) {// 如果版本等于检查版本 skynet_monitor_trigger时设置了version加1 如果相等则进入了无限循环
+		if (sm->destination) {// 目的是否存在
 			skynet_context_endless(sm->destination);
 			skynet_error(NULL, "A message from [ :%08x ] to [ :%08x ] maybe in an endless loop (version = %d)", sm->source , sm->destination, sm->version);
 		}

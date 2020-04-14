@@ -3,18 +3,19 @@
 
 struct skynet_context;
 
+//声明dl中的函数指针
 typedef void * (*skynet_dl_create)(void);
 typedef int (*skynet_dl_init)(void * inst, struct skynet_context *, const char * parm);
 typedef void (*skynet_dl_release)(void * inst);
 typedef void (*skynet_dl_signal)(void * inst, int signal);
 //可以理解为dll还有dll相关的模块组件
 struct skynet_module {
-	const char * name;	//dll名字
-	void * module;	//so库句柄
-	skynet_dl_create create;	
-	skynet_dl_init init;
-	skynet_dl_release release;
-	skynet_dl_signal signal;
+	const char * name;     //模块名称
+	void * module;         //用于保存dlopen返回的handle
+	skynet_dl_create create; //用于保存xxx_create函数入口地址  地址是skynet_module_query()中加载模块的时候通过dlsym找到的函数指针
+	skynet_dl_init init;     //用于保存xxx_init函数入口地址
+	skynet_dl_release release; //用于保存xxx_release函数入口地址
+	skynet_dl_signal signal;   //用于保存xxx_signal函数入口地址
 };
 
 void skynet_module_insert(struct skynet_module *mod);

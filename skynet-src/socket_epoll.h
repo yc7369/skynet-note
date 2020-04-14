@@ -52,7 +52,14 @@ sp_write(int efd, int sock, void *ud, bool enable) {
 static int 
 sp_wait(int efd, struct event *e, int max) {
 	struct epoll_event ev[max];
-	int n = epoll_wait(efd , ev, max, -1);
+	//epoll_event:用于回传代处理事件的数组；
+    //maxevents:每次能处理的事件数；
+	//timeout:等待I/O事件发生的超时值(单位毫秒)；-1相当于阻塞，0相当于非阻塞。一般用-1即可
+	int n = epoll_wait(efd , ev, max, -1); //等待事件触发，当超过timeout还没有事件触发时，就超时 返回事件数量和事件集合
+
+	//等侍注册在epfd上的socket fd的事件的发生，如果发生则将发生的sokct fd和事件类型放入到events数组中。
+	//并 且将注册在epfd上的socket fd的事件类型给清空，所以如果下一个循环你还要关注这个socket fd的话，
+    //则需要用epoll_ctl(epfd,EPOLL_CTL_MOD,listenfd,&ev)来重新设置socket fd的事件类型
 	int i;
 	for (i=0;i<n;i++) {
 		e[i].s = ev[i].data.ptr;
@@ -73,7 +80,7 @@ sp_nonblocking(int fd) {
 		return;
 	}
 
-	fcntl(fd, F_SETFL, flag | O_NONBLOCK);
+	fcntl(fd, F_SETFL, flag | O_NONBLOCK); //设置文件描述符非阻塞状态
 }
 
 #endif

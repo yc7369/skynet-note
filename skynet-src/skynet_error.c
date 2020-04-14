@@ -14,7 +14,7 @@ void
 skynet_error(struct skynet_context * context, const char *msg, ...) {
 	static uint32_t logger = 0;
 	if (logger == 0) {
-		logger = skynet_handle_findname("logger");
+		logger = skynet_handle_findname("logger");  // 根据名称查找handle 查找服务
 	}
 	if (logger == 0) {
 		return;
@@ -23,18 +23,18 @@ skynet_error(struct skynet_context * context, const char *msg, ...) {
 	char tmp[LOG_MESSAGE_SIZE];
 	char *data = NULL;
 
-	va_list ap;
+	va_list ap; //声明可变参数变量
 
-	va_start(ap,msg);
+	va_start(ap,msg); //ap指向msg之后的参数
 	int len = vsnprintf(tmp, LOG_MESSAGE_SIZE, msg, ap);
 	va_end(ap);
 	if (len >=0 && len < LOG_MESSAGE_SIZE) {
-		data = skynet_strdup(tmp);
+		data = skynet_strdup(tmp); // strdup() 将串拷贝到新建的位置处 得到实际的 msg
 	} else {
 		int max_size = LOG_MESSAGE_SIZE;
 		for (;;) {
 			max_size *= 2;
-			data = skynet_malloc(max_size);
+			data = skynet_malloc(max_size);// msg 大于 LOG_MESSAGE_SIZE 尝试 分配更大的空间来存放
 			va_start(ap,msg);
 			len = vsnprintf(data, max_size, msg, ap);
 			va_end(ap);
@@ -55,11 +55,11 @@ skynet_error(struct skynet_context * context, const char *msg, ...) {
 	if (context == NULL) {
 		smsg.source = 0;
 	} else {
-		smsg.source = skynet_context_handle(context);
+		smsg.source = skynet_context_handle(context); //ctx->handle
 	}
 	smsg.session = 0;
 	smsg.data = data;
 	smsg.sz = len | ((size_t)PTYPE_TEXT << MESSAGE_TYPE_SHIFT);
-	skynet_context_push(logger, &smsg);
+	skynet_context_push(logger, &smsg); // 将消息发送到对应的 handle 中处理
 }
 

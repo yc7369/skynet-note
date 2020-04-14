@@ -9,13 +9,13 @@
 #include <assert.h>
 #include <stdbool.h>
 
-#define DEFAULT_QUEUE_SIZE 64
-#define MAX_GLOBAL_MQ 0x10000
+#define DEFAULT_QUEUE_SIZE 64   //默认队列大小
+#define MAX_GLOBAL_MQ 0x10000  //最大的全局消息队列的大小 64K
 
 // 0 means mq is not in global mq.
 // 1 means mq is in global mq , or the message is dispatching.
 
-#define MQ_IN_GLOBAL 1
+#define MQ_IN_GLOBAL 1   //在全局队列中或者正在分发
 #define MQ_OVERLOAD 1024
 
 struct message_queue {
@@ -24,14 +24,15 @@ struct message_queue {
 	int cap;	//消息队列大小
 	int head;	//循环数组头
 	int tail;	//循环数组尾
-	int release;	//处理标记
+	int release;	//释放处理标记
 	int in_global;
 	int overload;	//过载标记，当消息队列过载后会有警告
 	int overload_threshold;	//过载标记扩大
-	struct skynet_message *queue;	//消息
-	struct message_queue *next;	
+	struct skynet_message *queue; //存放具体消息的连续内存的指针
+	struct message_queue *next;  //下一个队列的指针
 };
 
+//全局消息队列链表 其中保存了非空的各个服务的消息队列message_queue
 struct global_queue {
 	struct message_queue *head;
 	struct message_queue *tail;
@@ -85,11 +86,11 @@ skynet_mq_create(uint32_t handle) {
 	// When the queue is create (always between service create and service init) ,
 	// set in_global flag to avoid push it to global queue .
 	// If the service init success, skynet_context_new will call skynet_mq_push to push it to global queue.
-	q->in_global = MQ_IN_GLOBAL;
+	q->in_global = MQ_IN_GLOBAL; //在全局队列中（消息队列在服务创建和init之间，这里为了避免没有初始化就压到全局队列中，当服务init后通过new的push压到全局队列中）
 	q->release = 0;
 	q->overload = 0;
 	q->overload_threshold = MQ_OVERLOAD;
-	q->queue = skynet_malloc(sizeof(struct skynet_message) * q->cap);
+	q->queue = skynet_malloc(sizeof(struct skynet_message) * q->cap); //分配连续的cap内存用于存放具体消息
 	q->next = NULL;
 
 	return q;
@@ -108,6 +109,7 @@ skynet_mq_handle(struct message_queue *q) {
 	return q->handle;
 }
 
+//消息队列的长度
 int
 skynet_mq_length(struct message_queue *q) {
 	int head, tail,cap;
@@ -139,9 +141,9 @@ skynet_mq_pop(struct message_queue *q, struct skynet_message *message) {
 	int ret = 1;
 	SPIN_LOCK(q)
 
-	if (q->head != q->tail) {
-		*message = q->queue[q->head++];
-		ret = 0;
+	if (q->head != q->tail) { //如果队列头不等于队列尾
+		*message = q->queue[q->head++]; //取出队列头
+		ret = 0; //弹出成功返回0
 		int head = q->head;
 		int tail = q->tail;
 		int cap = q->cap;
@@ -162,8 +164,8 @@ skynet_mq_pop(struct message_queue *q, struct skynet_message *message) {
 		q->overload_threshold = MQ_OVERLOAD;
 	}
 
-	if (ret) {
-		q->in_global = 0;
+	if (ret) { 
+		q->in_global = 0; //设置在全局状态为0
 	}
 	
 	SPIN_UNLOCK(q)
@@ -171,6 +173,7 @@ skynet_mq_pop(struct message_queue *q, struct skynet_message *message) {
 	return ret;
 }
 
+//扩展消息队列message_queue 中的存放消息的内存空间
 static void
 expand_queue(struct message_queue *q) {
 	struct skynet_message *new_queue = skynet_malloc(sizeof(struct skynet_message) * q->cap * 2);
@@ -186,17 +189,18 @@ expand_queue(struct message_queue *q) {
 	q->queue = new_queue;
 }
 
+//消息压入消息队列 如果标识为不在全局队列中 则将消息队列挂在到全局消息队列的尾部
 void 
 skynet_mq_push(struct message_queue *q, struct skynet_message *message) {
 	assert(message);
 	SPIN_LOCK(q)
 
-	q->queue[q->tail] = *message;
+	q->queue[q->tail] = *message; //将消息压入消息队列的尾
 	if (++ q->tail >= q->cap) {
 		q->tail = 0;
 	}
 
-	if (q->head == q->tail) {
+	if (q->head == q->tail) { //如果队列头等于队列尾 扩容
 		expand_queue(q);
 	}
 
@@ -230,12 +234,13 @@ skynet_mq_mark_release(struct message_queue *q) {
 static void
 _drop_queue(struct message_queue *q, message_drop drop_func, void *ud) {
 	struct skynet_message msg;
-	while(!skynet_mq_pop(q, &msg)) {
+	while(!skynet_mq_pop(q, &msg)) { //消息弹出消息队列 删除消息队列中的消息内存块数据
 		drop_func(&msg, ud);
 	}
 	_release(q);
 }
 
+//释放消息队列  消息弹出消息队列 删除消息队列中的消息内存块数据
 void 
 skynet_mq_release(struct message_queue *q, message_drop drop_func, void *ud) {
 	SPIN_LOCK(q)
